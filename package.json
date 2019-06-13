@@ -1,7 +1,7 @@
 {
-	"name": "graphql-with-oauth2",
+	"name": "slack-clone-2019-server",
 	"version": "0.0.1",
-	"description": "GraphQL With OAuth2",
+	"description": "Slack Clone 2019 Server",
 	"devDependencies": {
 		"@types/async": "^2.4.1",
 		"@types/axios": "^0.14.0",
