@@ -7,6 +7,7 @@ import { OAuthUser } from "../../../entity/OAuthUser";
 import { AdminOnly } from "../../user/AdminOnly";
 import { oauth_helper } from "../../../modules/auth/OAuthHelper";
 import { my_util } from "../../../MyUtil";
+import { LoginResponse } from "../../../entity/LoginResponse";
 
 const { logDebug, logError } = my_util.getLoggers(module, 4);
 
@@ -67,8 +68,8 @@ export class Main {
 		return admin;
 	}
 
-	@Mutation(() => OAuthUser)
-	async login(@Arg("username") username: string, @Arg("password") password: string, @Ctx() ctx: MyContext): Promise<OAuthUser> {
+	@Mutation(() => LoginResponse)
+	async login(@Arg("username") username: string, @Arg("password") password: string, @Ctx() ctx: MyContext): Promise<LoginResponse> {
 		ctx.req.session.regenerate(() => {});
 
 		try {
@@ -77,7 +78,17 @@ export class Main {
 			ctx.req.session.userId = user.userId;
 			ctx.req.session.sessionId = sessionId;
 
-			return user;
+			const resp = new LoginResponse();
+
+			const client = await OauthClient.findOne();
+
+			const new_tokens = await oauth_helper.auth_handler.getNewTokens(client, user);
+
+			resp.user = user;
+			resp.token = new_tokens.accessToken.token;
+			resp.refreshToken = new_tokens.refreshToken.token;
+
+			return resp;
 		} catch (e) {
 			logError(e);
 

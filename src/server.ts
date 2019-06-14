@@ -64,6 +64,33 @@ export const startServer = async (auth_provider?: IAUTH_PROVIDER) => {
 
 	const apollo_server_opts = {
 		schema,
+		subscriptions: {
+			// 	path: "/subscriptions"
+			// 	// other options and hooks, like `onConnect`
+			onConnect: async (connectionParams: { authToken: string }, webSocket, ctx) => {
+				logDebug.enabled && logDebug("connectionParams:", connectionParams);
+				// @ts-ignore
+				logDebug.enabled && logDebug("ctx:", ctx!);
+
+				if (connectionParams.authToken) {
+					const accessToken = await auth_provider.verifyAccessToken(connectionParams.authToken);
+
+					if (accessToken) {
+						const oauth_user = await auth_provider.getUser(accessToken.userId);
+
+						if (!oauth_user) {
+							throw new Error("Invalid user!");
+						}
+
+						return {
+							currentUser: oauth_user
+						};
+					}
+				}
+
+				throw new Error("Missing auth token!");
+			}
+		},
 		context: ({ req, res }) => ({ req, res })
 	} as ApolloServerExpressConfig;
 
@@ -99,12 +126,9 @@ export const startServer = async (auth_provider?: IAUTH_PROVIDER) => {
 	app.use(require("morgan")("dev"));
 
 	app.use((req, res, next) => {
-		logDebug.enabled &&
-			logDebug("1111 ------------------------------------------------------------------------------------------");
-		logDebug.enabled &&
-			logDebug("1111 ------------------------------------------------------------------------------------------");
-		logDebug.enabled &&
-			logDebug("1111 ------------------------------------------------------------------------------------------");
+		logDebug.enabled && logDebug("1111 ------------------------------------------------------------------------------------------");
+		logDebug.enabled && logDebug("1111 ------------------------------------------------------------------------------------------");
+		logDebug.enabled && logDebug("1111 ------------------------------------------------------------------------------------------");
 		// logDebug.enabled&& logDebug("req", req);
 		logDebug.enabled && logDebug("1111 req.headers", req.headers);
 		logDebug.enabled && logDebug("1111 req.body", req.body);
@@ -121,6 +145,7 @@ export const startServer = async (auth_provider?: IAUTH_PROVIDER) => {
 
 	app.use(
 		cors({
+			origin: "http://localhost:3000",
 			// origin: (origin, cb) => {
 			// 	logDebug.enabled && logDebug("--------------------------------------------- CORS check!");
 			// 	if (whitelist.indexOf(origin) !== -1) {
@@ -167,12 +192,9 @@ export const startServer = async (auth_provider?: IAUTH_PROVIDER) => {
 	});
 
 	app.use((req, res, next) => {
-		logDebug.enabled &&
-			logDebug("2222 ------------------------------------------------------------------------------------------");
-		logDebug.enabled &&
-			logDebug("2222 ------------------------------------------------------------------------------------------");
-		logDebug.enabled &&
-			logDebug("2222 ------------------------------------------------------------------------------------------");
+		logDebug.enabled && logDebug("2222 ------------------------------------------------------------------------------------------");
+		logDebug.enabled && logDebug("2222 ------------------------------------------------------------------------------------------");
+		logDebug.enabled && logDebug("2222 ------------------------------------------------------------------------------------------");
 		// logDebug.enabled&& logDebug("req", req);
 		logDebug.enabled && logDebug("2222 req.headers", req.headers);
 		logDebug.enabled && logDebug("2222 req.body", req.body);
@@ -184,10 +206,23 @@ export const startServer = async (auth_provider?: IAUTH_PROVIDER) => {
 	app.use(express.static(__dirname + "../../public"));
 
 	server.applyMiddleware({
+		cors: {
+			origin: "http://localhost:3000",
+			// origin: (origin, cb) => {
+			// 	logDebug.enabled && logDebug("--------------------------------------------- CORS check!");
+			// 	if (whitelist.indexOf(origin) !== -1) {
+			// 		cb(null, true);
+			// 	} else {
+			// 		logWarn("Not allowed by CORS origin: " + origin);
+			// 		cb(new Error("Not allowed by CORS origin: " + origin));
+			// 	}
+			// },
+			credentials: true
+		},
 		app
 	});
 
-	const port = (process.env.PORT && parseInt(process.env.PORT)) || 4003;
+	const port = (process.env.PORT && parseInt(process.env.PORT)) || 4005;
 
 	app.listen({ port }, () => logInfo(`🚀 Server ready at http://localhost:${port}${server.graphqlPath}`));
 };
