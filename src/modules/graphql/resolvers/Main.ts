@@ -15,90 +15,92 @@ logDebug.enabled = true;
 
 @Resolver()
 export class Main {
-	@Query(() => OAuthUser)
-	@Authorized()
-	async account(@Ctx() ctx): Promise<OAuthUser> {
-		logDebug.enabled && logDebug("acount::");
-		const user = await OAuthUser.findOne({ where: { userId: ctx.req.session && ctx.req.session.userId } });
+    @Query(() => OAuthUser)
+    @Authorized()
+    async account(@Ctx() ctx): Promise<OAuthUser> {
+        logDebug.enabled && logDebug("acount::");
+        const user = await OAuthUser.findOne({ where: { userId: ctx.req.session && ctx.req.session.userId } });
 
-		return user;
-	}
+        return user;
+    }
 
-	@Mutation(() => Boolean)
-	@Authorized()
-	async logout(@Ctx() ctx: MyContext): Promise<Boolean> {
-		console.log("logout::");
-		return new Promise((resolve, reject) => {
-			// @ts-ignore
-			ctx.req.session!.destroy(err => {
-				console.log("err:", err);
+    @Mutation(() => Boolean)
+    @Authorized()
+    async logout(@Ctx() ctx: MyContext): Promise<Boolean> {
+        console.log("logout::");
+        return new Promise((resolve, reject) => {
+            // @ts-ignore
+            ctx.req.session!.destroy(err => {
+                console.log("err:", err);
 
-				if (err) return reject(err);
+                if (err) return reject(err);
 
-				ctx.res.clearCookie(process.env.COOKIE_NAME || "jssessionid");
+                ctx.res.clearCookie(process.env.COOKIE_NAME || "jssessionid");
 
-				return resolve(true);
-			});
-		});
+                return resolve(true);
+            });
+        });
 
-		return true;
-	}
+        return true;
+    }
 
-	@Mutation(() => OauthClient)
-	@UseMiddleware(AdminOnly)
-	async createOAuthClient(@Ctx() ctx: MyContext, @Arg("client_id") client_id: string, @Arg("title") title: string): Promise<OauthClient> {
-		const admin = await OAuthUser.findOne({ where: { userId: ctx.req.session.userId } });
+    @Mutation(() => OauthClient)
+    @UseMiddleware(AdminOnly)
+    async createOAuthClient(@Ctx() ctx: MyContext, @Arg("client_id") client_id: string, @Arg("title") title: string): Promise<OauthClient> {
+        const admin = await OAuthUser.findOne({ where: { userId: ctx.req.session.userId } });
 
-		if (!admin) {
-			throw new Error("Invalid session");
-		}
+        if (!admin) {
+            throw new Error("Invalid session");
+        }
 
-		return await oauth_helper.createAuthClient({ clientId: client_id, title });
-	}
+        return await oauth_helper.createAuthClient({ clientId: client_id, title });
+    }
 
-	@Mutation(() => OAuthUser)
-	@UseMiddleware(AdminOnly)
-	async createUserAccess(@Ctx() ctx: MyContext, @Arg("username") username: string, @Arg("password") password: string): Promise<OAuthUser> {
-		const admin = await oauth_helper.createUser(username, password);
+    @Mutation(() => OAuthUser)
+    @UseMiddleware(AdminOnly)
+    async createUserAccess(@Ctx() ctx: MyContext, @Arg("username") username: string, @Arg("password") password: string): Promise<OAuthUser> {
+        const admin = await oauth_helper.createUser(username, password);
 
-		if (!admin) {
-			throw new Error("Invalid session");
-		}
+        if (!admin) {
+            throw new Error("Invalid session");
+        }
 
-		return admin;
-	}
+        return admin;
+    }
 
-	@Mutation(() => LoginResponse)
-	async login(@Arg("username") username: string, @Arg("password") password: string, @Ctx() ctx: MyContext): Promise<LoginResponse> {
-		ctx.req.session.regenerate(() => {});
+    @Mutation(() => LoginResponse)
+    async login(@Arg("username") username: string, @Arg("password") password: string, @Ctx() ctx: MyContext): Promise<LoginResponse> {
+        ctx.req.session.regenerate(() => {});
 
-		try {
-			const { user, sessionId } = await oauth_helper.authenticateUser({ username, password });
+        try {
+            const { user, sessionId } = await oauth_helper.authenticateUser({ username, password });
 
-			ctx.req.session.userId = user.userId;
-			ctx.req.session.sessionId = sessionId;
+            ctx.req.session.userId = user.userId;
+            ctx.req.session.sessionId = sessionId;
 
-			const resp = new LoginResponse();
+            const resp = new LoginResponse();
 
-			const client = await OauthClient.findOne();
+            const client = await OauthClient.findOne();
 
-			const new_tokens = await oauth_helper.auth_handler.getNewTokens(client, user);
+            console.log("client:", client);
 
-			resp.user = user;
-			resp.token = new_tokens.accessToken.token;
-			resp.refreshToken = new_tokens.refreshToken.token;
+            const new_tokens = client && (await oauth_helper.auth_handler.getNewTokens(client, user));
 
-			return resp;
-		} catch (e) {
-			logError(e);
+            resp.user = user;
+            resp.token = new_tokens && new_tokens.accessToken.token;
+            resp.refreshToken = new_tokens && new_tokens.refreshToken.token;
 
-			throw new Error("Invalid user/password");
-		}
-	}
+            return resp;
+        } catch (e) {
+            logError(e);
 
-	@Query(() => [OAuthUser])
-	@UseMiddleware(AdminOnly)
-	async getUsers(): Promise<OAuthUser[]> {
-		return await OAuthUser.find();
-	}
+            throw new Error("Invalid user/password");
+        }
+    }
+
+    @Query(() => [OAuthUser])
+    @UseMiddleware(AdminOnly)
+    async getUsers(): Promise<OAuthUser[]> {
+        return await OAuthUser.find();
+    }
 }
